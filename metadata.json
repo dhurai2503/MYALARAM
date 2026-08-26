@@ -1,0 +1,6 @@
+{
+  "name": "MyAlaram",
+  "description": "An alarm application requiring a randomized 10-digit passcode to turn off, prompting awake awareness.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
