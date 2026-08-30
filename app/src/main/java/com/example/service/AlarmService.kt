@@ -86,10 +86,18 @@ class AlarmService : Service() {
         AlarmRingState.stopRinging()
     }
 
+    private fun calculatePlayerVolume(scale: Float): Float {
+        if (scale <= 0.01f) return 0.0f
+        if (scale >= 0.99f) return 1.0f
+        // Smooth linear volume scaling: 0.40f represents 40% playback volume (down 60%)
+        return scale.coerceIn(0.15f, 1.0f)
+    }
+
     private fun playAlarmSound(toneUriStr: String?) {
         stopAlarmSound() // Stop if already playing
 
         val currentScale = AlarmRingState.volumeScale.value
+        val playerVolume = calculatePlayerVolume(currentScale)
 
         val alarmUri: Uri = if (!toneUriStr.isNullOrEmpty()) {
             try {
@@ -114,10 +122,10 @@ class AlarmService : Service() {
                 )
                 isLooping = true
                 prepare()
-                setVolume(currentScale, currentScale)
+                setVolume(playerVolume, playerVolume)
                 start()
             }
-            Log.d("AlarmService", "Playing alarm sound successfully at volume scale: $currentScale")
+            Log.d("AlarmService", "Playing alarm sound successfully at volume scale: $currentScale (actual: $playerVolume)")
         } catch (e: Exception) {
             Log.e("AlarmService", "Error building default alarm media player, trying ringtone fallback", e)
             try {
@@ -125,7 +133,7 @@ class AlarmService : Service() {
                 val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
                 mediaPlayer = MediaPlayer.create(applicationContext, ringtoneUri)?.apply {
                     isLooping = true
-                    setVolume(currentScale, currentScale)
+                    setVolume(playerVolume, playerVolume)
                     start()
                 }
             } catch (e2: Exception) {
@@ -139,8 +147,20 @@ class AlarmService : Service() {
         volumeScaleJob = CoroutineScope(Dispatchers.Main).launch {
             AlarmRingState.volumeScale.collect { scale ->
                 try {
-                    mediaPlayer?.setVolume(scale, scale)
-                    Log.d("AlarmService", "Updated alarm playback volume to $scale (${(scale * 100).toInt()}%)")
+                    val actualVol = calculatePlayerVolume(scale)
+                    mediaPlayer?.setVolume(actualVol, actualVol)
+
+                    // Ensure the hardware system volume stream is kept high so the alarm is loud & clear
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+                    if (audioManager != null) {
+                        val maxAlarmVol = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
+                        audioManager.setStreamVolume(android.media.AudioManager.STREAM_ALARM, maxAlarmVol, 0)
+
+                        val maxMusicVol = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
+                        audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, maxMusicVol, 0)
+                    }
+
+                    Log.d("AlarmService", "Updated alarm playback volume to scale=$scale (playerVol=$actualVol)")
                 } catch (e: Exception) {
                     Log.e("AlarmService", "Error setting media player volume scale", e)
                 }
@@ -163,15 +183,15 @@ class AlarmService : Service() {
                         val maxAlarmVol = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
                         audioManager.setStreamVolume(android.media.AudioManager.STREAM_ALARM, maxAlarmVol, 0)
                     } catch (e: Exception) {
-                        Log.e("AlarmService", "Failed to force alarm stream volume", e)
+                        Log.e("AlarmService", "Failed to enforce alarm stream volume", e)
                     }
                     try {
                         val maxMusicVol = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
                         audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, maxMusicVol, 0)
                     } catch (e: Exception) {
-                        Log.e("AlarmService", "Failed to force music stream volume", e)
+                        Log.e("AlarmService", "Failed to enforce music stream volume", e)
                     }
-                    delay(800) // Repeatedly reinforce volume level every 800 milliseconds
+                    delay(800) // Reinforce stream volume level periodically
                 }
             }
         }

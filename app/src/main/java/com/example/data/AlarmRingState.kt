@@ -13,7 +13,7 @@ object AlarmRingState {
     private val _activeAlarmLabel = MutableStateFlow("")
     val activeAlarmLabel: StateFlow<String> = _activeAlarmLabel
 
-    // Volume level multiplier: 1.0f (100%) by default, reduces to 0.5f (50%) when entering passcode
+    // Volume level multiplier: 1.0f (100%) by default, reduces to 0.4f (reduced by 60%) when entering passcode
     private val _volumeScale = MutableStateFlow(1.0f)
     val volumeScale: StateFlow<Float> = _volumeScale
 

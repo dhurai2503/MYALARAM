@@ -75,11 +75,11 @@ class AlarmViewModel(private val repository: AlarmRepository) : ViewModel() {
             val updated = current + digit
             _enteredPasscode.value = updated
             _isPasscodeIncorrect.value = false
-            _unlockStatusMessage.value = "Entered: ${updated.length}/10 digits • Volume: 50%"
+            _unlockStatusMessage.value = "Entered: ${updated.length}/10 digits • Volume reduced by 60%"
 
-            // Reduce alarm volume by 50% as soon as the user enters the first digit and continue
+            // Reduce alarm volume by 60% (to 40% playback level) as soon as the user enters the first digit and continue
             if (updated.isNotEmpty()) {
-                AlarmRingState.setVolumeScale(0.5f)
+                AlarmRingState.setVolumeScale(0.4f)
             }
 
             // Keypad numbers must be shuffled AFTER EACH PRESS to ensure awake focus
@@ -97,13 +97,13 @@ class AlarmViewModel(private val repository: AlarmRepository) : ViewModel() {
             val updated = current.dropLast(1)
             _enteredPasscode.value = updated
             _isPasscodeIncorrect.value = false
-            _unlockStatusMessage.value = if (updated.isNotEmpty()) "Entered: ${updated.length}/10 digits • Volume: 50%" else ""
+            _unlockStatusMessage.value = if (updated.isNotEmpty()) "Entered: ${updated.length}/10 digits • Volume reduced by 60%" else ""
 
-            // If empty, restore to full volume, otherwise stay at 50%
+            // If empty, restore to full volume, otherwise stay at 40%
             if (updated.isEmpty()) {
                 AlarmRingState.setVolumeScale(1.0f)
             } else {
-                AlarmRingState.setVolumeScale(0.5f)
+                AlarmRingState.setVolumeScale(0.4f)
             }
 
             shuffleKeypad() // Shuffle on backspace as well to increase wakefulness
